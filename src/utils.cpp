@@ -1,13 +1,88 @@
 #include "utils.hpp"
 
-cv::Mat convertToYCbCr(const cv::Mat& rgb_image) {
+cv::Mat load_image(const std::string& filename) {
+    //TODO Реализовать проверку
+    // https://docs.opencv.org/3.4/dc/da3/tutorial_copyMakeBorder.html
+    // good example how to operate over unsuccessfull read
+    return cv::imread(filename);
+}
+
+cv::Mat convert_to_YCbCr(const cv::Mat& rgb_image) {
     cv::Mat ycbcr;
     cv::cvtColor(rgb_image, ycbcr, cv::COLOR_BGR2YCrCb);
     return ycbcr;
 }
 
-cv::Mat convertToRGB(const cv::Mat& ycbcr_image) {
+cv::Mat convert_to_BGR(const cv::Mat& ycbcr_image) {
     cv::Mat rgb;
     cv::cvtColor(ycbcr_image, rgb, cv::COLOR_YCrCb2BGR);
     return rgb;
+}
+
+cv::Mat pad_to_block_size(const cv::Mat& channel, int blockSize = 8) {
+    //TODO Реализовать проверку на размеры
+    int paddedRows = ((channel.rows + blockSize - 1) / blockSize) * blockSize;
+    int paddedCols = ((channel.cols + blockSize - 1) / blockSize) * blockSize;
+
+    cv::Mat padded;
+    cv::copyMakeBorder(channel, padded,
+        0, paddedRows - channel.rows,
+        0, paddedCols - channel.cols,
+        cv::BORDER_CONSTANT, 0);
+    return padded;
+}
+
+std::vector<cv::Mat> split_into_blocks(const cv::Mat& channel, int blockSize) {
+    std::vector<cv::Mat> blocks;
+
+    for (int y = 0; y < channel.rows; y += blockSize) {
+        for (int x = 0; x < channel.cols; x += blockSize) {
+            cv::Rect roi(x, y, blockSize, blockSize);
+            blocks.push_back(channel(roi).clone());
+        }
+    }
+    
+    return blocks;
+}
+
+cv::Mat merge_blocks(const std::vector<cv::Mat>& blocks, int width, int height, int blockSize) {
+    int rows = ((height + blockSize - 1) / blockSize) * blockSize;
+    int cols = ((width + blockSize - 1) / blockSize) * blockSize;
+    cv::Mat full(rows, cols, blocks[0].type(), cv::Scalar(0));
+
+    int blockIndex = 0;
+    for (int y = 0; y < rows; y += blockSize) {
+        for (int x = 0; x < cols; x += blockSize) {
+            if (blockIndex >= blocks.size()) break;
+            blocks[blockIndex++].copyTo(full(cv::Rect(x, y, blockSize, blockSize)));
+        }
+    }
+    return full(cv::Rect(0, 0, width, height)).clone();
+}
+
+void centerBlocks(std::vector<cv::Mat>& blocks) {
+    for (auto& block : blocks) {
+        block = block - 128;
+    }
+}
+
+void decenterBlocks(std::vector<cv::Mat>& blocks) {
+    for (auto& block : blocks) {
+        block = block + 128;
+    }
+}
+
+cv::Mat applyDCT(const cv::Mat& block) {
+    //TODO Реализовать вручную  
+    // Надо убедиться, что разрешение входных блоков 8х8
+    CV_Assert(block.rows == 8 && block.cols == 8);
+    CV_Assert(block.type() == CV_32F);
+
+    cv::Mat dctBlock;
+    cv::dct(block, dctBlock); // Прямое DCT-преобразование
+    return dctBlock;
+}
+
+std::vector<cv::Mat> applyDCTToBlocks(const std::vector<cv::Mat>& blocks) {
+
 }

@@ -7,7 +7,7 @@ Implementation core algorithms for jpeg compression using OpenCV library
 **Прим**: обычно изображение читается в формате BGR (OpenCV по умолчанию) <br>
 Но для дальнейшего шага переводить RGB → BGR не стоит. Проще сразу BGR → YCbCr <br>
 1. Преобразование в YCbCr <br>
-* Функция convertToYCbCr
+
 1. Деление каждого канала на блоки 8×8 <br>
 * Функция splitIntoBlocks
 * Дополнительно, если ширина/высота не кратны 8, функция padToBlockSize
