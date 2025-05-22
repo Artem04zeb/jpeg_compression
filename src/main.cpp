@@ -1,47 +1,124 @@
-#include <opencv2/opencv.hpp>
-#include "utils.hpp"
+Ôªø#include <iostream>
 #include <string>
-#include <vector>
+#include <opencv2/opencv.hpp>
 
+#include "compressor.hpp"
+#include "utils.hpp"
 
 int main() {
+    std::string inputPath = "D:\\Desktop\\–∫—É—Ä—Å–æ–≤–∞—è —Ä–∞–±–æ—Ç–∞\\data\\input3.png";
+    std::string compressedPath = "D:\\Desktop\\–∫—É—Ä—Å–æ–≤–∞—è —Ä–∞–±–æ—Ç–∞\\data\\bin-input3.bin";
+    std::string restoredPath = "D:\\Desktop\\–∫—É—Ä—Å–æ–≤–∞—è —Ä–∞–±–æ—Ç–∞\\data\\restored-input3.png";
 
-    std::string inputPath = "D:\\Desktop\\ÍÛÒÓ‚‡ˇ ‡·ÓÚ‡\\data\\input.jpg";
+    //// 1. –ó–∞–≥—Ä—É–∑–∫–∞ –∏–∑–æ–±—Ä–∞–∂–µ–Ω–∏—è
+    cv::Mat image = load_image(inputPath);
+    if (image.empty()) {
+        std::cerr << "Error: failed to load image!" << std::endl;
+        return 1;
+    }
+    std::cout << ">>>>> Image loaded" << std::endl;
+    //cv::imshow("TEST Original", image);
 
-    // —˜ËÚ˚‚‡ÌËÂ ËÁÓ·‡ÊÂÌËˇ
-    cv::Mat img = load_image(inputPath);
-    //cv::imshow("test", img);
+
+    //// 2. –ü—Ä–µ–æ–±—Ä–∞–∑–æ–≤–∞–Ω–∏–µ –≤ YCbCr
+    cv::Mat ycbcr = convert_to_YCbCr(image);
+    std::cout << ">>>>> Transform to YCbCr completed" << std::endl;
+
+    // –ü—Ä–æ–≤–µ—Ä–∫–∞ —Ä–∞–±–æ—Ç—ã –∫–æ–Ω–≤–µ—Ä—Ç–µ—Ä–∞
+    // –ü—Ä–æ–≤–µ—Ä–∫–∞ —Ä–∞–±–æ—Ç—ã –æ–±—Ä–∞—Ç–Ω–æ–≥–æ –∫–æ–Ω–≤–µ—Ä—Ç–µ—Ä–∞
+    //cv::imshow("TEST convert_to_YCbCr", ycbcr);
+    //cv::Mat restored_bgr = convert_to_BGR(ycbcr);
+    //cv::imshow("TEST convert_to_BGR", restored_bgr);
     //cv::waitKey(0);
 
-    // œÓ‚ÂÍ‡ ‡·ÓÚ˚ ÍÓÌ‚ÂÚÂ‡
-    cv::Mat ycbcr = convert_to_YCbCr(img);
-    //cv::imshow("test", ycbcr);
+    //// 3. –†–∞–∑–¥–µ–ª–µ–Ω–∏–µ –Ω–∞ –∫–∞–Ω–∞–ª—ã
+    std::vector<cv::Mat> channels(3);
+    cv::split(ycbcr, channels);
+
+    // –ü—Ä–∏–≤–µ–¥–µ–Ω–∏–µ –∫–∞–∂–¥–æ–≥–æ –∫–∞–Ω–∞–ª–∞ –∫ float:
+    for (auto& c : channels) {
+        c.convertTo(c, CV_32F, 1.0 / 255.0);
+    } 
+    std::cout << ">>>>> Conversion channels to CV_32F completed" << std::endl;
+    // –ü—Ä–æ–≤–µ—Ä–∫–∞ —Ä–∞–∑–¥–µ–µ–Ω–∏—è –Ω–∞ –∫–∞–Ω–∞–ª—ã
+    //for (int i = 0; i < 3; ++i) {
+    //    cv::imshow("TEST " + std::to_string(i), channels[i]);
+    //} 
     //cv::waitKey(0);
 
-    // œÓ‚ÂÍ‡ ‡·ÓÚ˚ ÙÛÌÍˆËË
-    //cv::Mat new_image = pad_to_block_size(img, 8);
-    //std::cout << (new_image.rows) << std::endl;
-    //std::cout << (new_image.cols) << std::endl;
-    //cv::imshow("YCbCr", img);
+    cv::Mat& Y = channels[0];
+    cv::Mat& Cb = channels[1];
+    cv::Mat& Cr = channels[2];
+    std::cout << ">>>>> Spliting by channels completed" << std::endl;
 
-    // œÓ‚ÂÍ‡ ‡·ÓÚ˚ ÙÛÌÍˆËË
-    //std::vector<cv::Mat> splitted = split_into_blocks(new_image, 200); // 8
-    //std::cout << (splitted[0].rows) << std::endl;
-    //std::cout << (splitted[0].cols) << std::endl;
-    //cv::imshow("YCbCr", splitted[0]);
-    //cv::imshow("YCbCr2", splitted[1]);
-    //cv::imshow("YCbCr3", splitted[2]);
+    //// –ü—Ä–æ–≤–µ—Ä–∫–∞ –Ω–∞ –æ–±—ä–µ–¥–∏–Ω–µ–Ω–∏–µ –∫–∞–Ω–∞–ª–æ–≤
+    // –ü–µ—Ä–µ–¥ —Å–±–æ—Ä–∫–æ–π –æ–±—Ä–∞—Ç–Ω–æ –≤ CV_8U
+    //for (auto& ch : channels) {
+    //    ch.convertTo(ch, CV_8U, 255.0);
+    //}
+    //cv::Mat ycbcr_restored;
+    //cv::merge(channels, ycbcr_restored);
+    //cv::imshow("TEST Merging of channels", convert_to_BGR(ycbcr_restored));
     //cv::waitKey(0);
 
-    // œÓ‚ÂÍ‡ ‡·ÓÚ˚ ˆÂÌÚËÓ‚‡ÌËˇ Ë ‰ÂˆÂÌÚËÓ‚‡ÌËˇ
-    //TODO œÓ˜ÂÏÛ-ÚÓ ÔË ˆÂÌÚËÓ‚‡ÌËÂ+‰ÂˆÂÌÚËÓ‚‡ÌËÂ ÌÂ ‰‡ÂÚ Ì‡˜‡Î¸ÌÛ˛ Í‡ÚËÌÍÛ
-    std::vector<cv::Mat> test_case;
-    test_case.push_back(img);
-    std::cout << "ASD ASD" << std::endl;
-    centerBlocks(test_case);
-    decenterBlocks(test_case);
-    cv::imshow("YCbCr3", test_case[0]);
-    cv::waitKey(0);
+    int width = image.cols;
+    int height = image.rows;
+    std::cout << ">>>>> Width and Height saved" << std::endl;
 
 
+    //// 4. –û–±—Ä–∞–±–æ—Ç–∫–∞ –∫–∞–Ω–∞–ª–æ–≤
+    std::vector<RLEVector> Y_encoded = processChannel(Y, getStandardLuminanceQuantTable());
+    std::cout << ">>> Y_encoded processed" << std::endl;
+    std::vector<RLEVector> Cb_encoded = processChannel(Cb, getStandardChrominanceQuantTable());
+    std::cout << ">>> Cb_encoded processed" << std::endl;
+    std::vector<RLEVector> Cr_encoded = processChannel(Cr, getStandardChrominanceQuantTable());
+    std::cout << ">>> Cr_encoded processed" << std::endl;
+
+    std::cout << ">>>>> Channel processed" << std::endl;
+
+    //// 5. –°–æ—Ö—Ä–∞–Ω–µ–Ω–∏–µ —Å–∂–∞—Ç—ã—Ö –¥–∞–Ω–Ω—ã—Ö
+    saveCompressed(compressedPath, Y_encoded, Cb_encoded, Cr_encoded, width, height);
+    std::cout << ">>>>> Comression completed." << std::endl;
+
+    ////=== –î–ï–ö–û–ú–ü–†–ï–°–°–ò–Ø ===
+    CompressedImage compressed = loadCompressed(compressedPath);
+    std::cout << ">>>>> loadCompressed completed." << std::endl;
+
+    auto restorechannel = [](const CompressedChannel& comp, const cv::Mat& qtable) -> cv::Mat {
+        std::vector<cv::Mat> blocks;
+        for (const auto& rle : comp.blocks) {
+            auto zz = runLengthDecode(rle);
+            auto block = zigzagUnscan(zz);
+            blocks.push_back(block);
+        }
+        auto dequant = dequantizeBlocks(blocks, qtable);
+        auto idct = applyIDCTToBlocks(dequant);
+        decenterBlocks(idct);
+        return merge_blocks(idct, comp.width, comp.height, 8);
+        };
+
+    ////6. –≤–æ—Å—Å—Ç–∞–Ω–æ–≤–ª–µ–Ω–∏–µ –∫–∞–Ω–∞–ª–æ–≤
+    cv::Mat y_restored = restorechannel(compressed.Y, getStandardLuminanceQuantTable());
+    cv::Mat cb_restored = restorechannel(compressed.Cb, getStandardChrominanceQuantTable());
+    cv::Mat cr_restored = restorechannel(compressed.Cr, getStandardChrominanceQuantTable());
+    std::cout << ">>>>> restore channel completed." << std::endl;
+
+    //// 7. –æ–±—ä–µ–¥–∏–Ω–µ–Ω–∏–µ –∫–∞–Ω–∞–ª–æ–≤
+    std::vector<cv::Mat> mergedchannels = { y_restored, cb_restored, cr_restored };
+    // –ü–µ—Ä–µ–¥ —Å–±–æ—Ä–∫–æ–π –æ–±—Ä–∞—Ç–Ω–æ –≤ CV_8U
+    for (auto& ch : mergedchannels) {
+        ch.convertTo(ch, CV_8U, 255.0);
+    }
+    cv::Mat ycbcr_restored;
+    cv::merge(mergedchannels, ycbcr_restored);
+    std::cout << ">>>>> merged channels completed." << std::endl;
+
+    ////8. –ø—Ä–µ–æ–±—Ä–∞–∑–æ–≤–∞–Ω–∏–µ –≤ bgr
+    cv::Mat restored_bgr = convert_to_BGR(ycbcr_restored);
+    std::cout << ">>>>> restored_bgr completed." << std::endl;
+
+    ////9. —Å–æ—Ö—Ä–∞–Ω–µ–Ω–∏–µ –≤–æ—Å—Å—Ç–∞–Ω–æ–≤–ª–µ–Ω–Ω–æ–≥–æ –∏–∑–æ–±—Ä–∞–∂–µ–Ω–∏—è
+    saveImage(restoredPath, restored_bgr);
+    std::cout << "Compression and restoration completed" << std::endl;
+    return 0;
 }

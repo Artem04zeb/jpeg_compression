@@ -1,88 +1,49 @@
+п»ї#pragma once
+
 #include "utils.hpp"
 
 cv::Mat load_image(const std::string& filename) {
-    //TODO Реализовать проверку
+    //TODO Р РµР°Р»РёР·РѕРІР°С‚СЊ РїСЂРѕРІРµСЂРєСѓ
     // https://docs.opencv.org/3.4/dc/da3/tutorial_copyMakeBorder.html
     // good example how to operate over unsuccessfull read
     return cv::imread(filename);
 }
 
-cv::Mat convert_to_YCbCr(const cv::Mat& rgb_image) {
-    cv::Mat ycbcr;
-    cv::cvtColor(rgb_image, ycbcr, cv::COLOR_BGR2YCrCb);
-    return ycbcr;
+void saveImage(const std::string& path, const cv::Mat& image) {
+    cv::imwrite(path, image);
 }
 
-cv::Mat convert_to_BGR(const cv::Mat& ycbcr_image) {
-    cv::Mat rgb;
-    cv::cvtColor(ycbcr_image, rgb, cv::COLOR_YCrCb2BGR);
-    return rgb;
-}
-
-cv::Mat pad_to_block_size(const cv::Mat& channel, int blockSize = 8) {
-    //TODO Реализовать проверку на размеры
-    int paddedRows = ((channel.rows + blockSize - 1) / blockSize) * blockSize;
-    int paddedCols = ((channel.cols + blockSize - 1) / blockSize) * blockSize;
-
-    cv::Mat padded;
-    cv::copyMakeBorder(channel, padded,
-        0, paddedRows - channel.rows,
-        0, paddedCols - channel.cols,
-        cv::BORDER_CONSTANT, 0);
-    return padded;
-}
-
-std::vector<cv::Mat> split_into_blocks(const cv::Mat& channel, int blockSize) {
-    std::vector<cv::Mat> blocks;
-
-    for (int y = 0; y < channel.rows; y += blockSize) {
-        for (int x = 0; x < channel.cols; x += blockSize) {
-            cv::Rect roi(x, y, blockSize, blockSize);
-            blocks.push_back(channel(roi).clone());
-        }
-    }
+// Р Р°Р±РѕС‚Р° РЅР°Рґ С„СѓРЅРєС†РёСЏРјРё
+std::vector<RLEVector> processChannel(const cv::Mat& channel, const cv::Mat& qTable) {
+    std::cout << "[INFO processChannel] Original size: " << channel.size() << std::endl;
     
-    return blocks;
-}
+    // Р§С‚РѕР±С‹ РїСЂРёРјРµРЅСЏС‚СЊ DCT, РёР·РѕР±СЂР°Р¶РµРЅРёРµ СЂР°Р·Р±РёРІР°РµС‚СЃСЏ РЅР° Р±Р»РѕРєРё 8Г—8. Р­С‚Рѕ РґРѕРїРѕР»РЅСЏРµС‚ РёР·РѕР±СЂР°Р¶РµРЅРёРµ РґРѕ РЅСѓР¶РЅРѕРіРѕ СЂР°Р·РјРµСЂР°
+    cv::Mat padded = pad_to_block_size(channel, 8);
+    std::cout << "[INFO processChannel] After pad: " << padded.size() << std::endl;
 
-cv::Mat merge_blocks(const std::vector<cv::Mat>& blocks, int width, int height, int blockSize) {
-    int rows = ((height + blockSize - 1) / blockSize) * blockSize;
-    int cols = ((width + blockSize - 1) / blockSize) * blockSize;
-    cv::Mat full(rows, cols, blocks[0].type(), cv::Scalar(0));
+    // Р Р°Р·Р±РёРµРЅРёРµ РЅР° Р±Р»РѕРєРё
+    std::vector<cv::Mat> blocks = split_into_blocks(padded, 8);
+    std::cout << "[INFO processChannel] Amount of blocks: " << blocks.size() << std::endl;
 
-    int blockIndex = 0;
-    for (int y = 0; y < rows; y += blockSize) {
-        for (int x = 0; x < cols; x += blockSize) {
-            if (blockIndex >= blocks.size()) break;
-            blocks[blockIndex++].copyTo(full(cv::Rect(x, y, blockSize, blockSize)));
-        }
+    // Р¦РµРЅС‚СЂРёСЂРѕРІР°РЅРёРµ Р·РЅР°С‡РµРЅРёР№
+    centerBlocks(blocks);
+    std::cout << "[INFO processChannel] Centration of blocks completed" << std::endl;
+
+    // РџСЂРёРјРµРЅРµРЅРёРµ DCT
+    std::vector<cv::Mat> dctBlocks = applyDCTToBlocks(blocks);
+    std::cout << "[INFO processChannel] DCT Application of blocks completed" << std::endl;
+
+    // РљРІР°РЅС‚РѕРІР°РЅРёРµ
+    std::vector<cv::Mat> qBlocks = quantizeBlocks(dctBlocks, qTable);
+    std::cout << "[INFO processChannel] Quantation completed" << std::endl;
+
+    // Р—РёРіР·Р°РіРѕРѕР±СЂР°Р·РЅРѕРµ СЃРєР°РЅРёСЂРѕРІР°РЅРёРµ + RLE
+    std::vector<RLEVector> encoded;
+    for (const auto& block : qBlocks) {
+        auto zz = zigzagScan(block);
+        encoded.push_back(runLengthEncode(zz));
     }
-    return full(cv::Rect(0, 0, width, height)).clone();
-}
+    std::cout << "[INFO processChannel] ZZ and RLE completed" << std::endl;
 
-void centerBlocks(std::vector<cv::Mat>& blocks) {
-    for (auto& block : blocks) {
-        block = block - 128;
-    }
-}
-
-void decenterBlocks(std::vector<cv::Mat>& blocks) {
-    for (auto& block : blocks) {
-        block = block + 128;
-    }
-}
-
-cv::Mat applyDCT(const cv::Mat& block) {
-    //TODO Реализовать вручную  
-    // Надо убедиться, что разрешение входных блоков 8х8
-    CV_Assert(block.rows == 8 && block.cols == 8);
-    CV_Assert(block.type() == CV_32F);
-
-    cv::Mat dctBlock;
-    cv::dct(block, dctBlock); // Прямое DCT-преобразование
-    return dctBlock;
-}
-
-std::vector<cv::Mat> applyDCTToBlocks(const std::vector<cv::Mat>& blocks) {
-
+    return encoded;
 }
